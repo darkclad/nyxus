@@ -86,6 +86,7 @@
 #include "test_roi_blacklist_mechanics.h"
 #include "test_2d_nested_roi_mechanics.h"
 #include "test_2d_tiff_loader_mechanics.h"
+#include "test_2d_tagless_tiled_tiff_mechanics.h"
 #include "test_imq_regression.h"
 #include "test_imq_opencv.h"
 #include "test_imq_cellprofiler.h"
@@ -1317,6 +1318,71 @@ TEST(TEST_NYXUS, TEST_ROI_BLACKLIST_MECHANICS)
 TEST(TEST_NYXUS, TEST_2D_TIFF_LOADER_UINT32_STRIP_MECHANICS)
 {
 	ASSERT_NO_THROW(test_2d_tiff_loader_uint32_strip_mechanics());
+}
+
+TEST(TEST_NYXUS, TEST_2D_TAGLESS_TILED_TIFF_GRAYSCALE_TILE_LOADER_MECHANICS)
+{
+	ASSERT_NO_FATAL_FAILURE(test_2d_tagless_tiled_tiff_grayscale_tile_loader_mechanics());
+}
+
+TEST(TEST_NYXUS, TEST_2D_TAGLESS_TILED_TIFF_MASK_TILE_LOADER_MECHANICS)
+{
+	ASSERT_NO_FATAL_FAILURE(test_2d_tagless_tiled_tiff_mask_tile_loader_mechanics());
+}
+
+TEST(TEST_NYXUS, TEST_2D_TAGLESS_TILED_TIFF_RAW_TILE_LOADER_MECHANICS)
+{
+	ASSERT_NO_FATAL_FAILURE(test_2d_tagless_tiled_tiff_raw_tile_loader_mechanics());
+}
+
+TEST(TEST_NYXUS, TEST_2D_TAGLESS_TILED_TIFF_DECLARED_FLOAT_STILL_REFUSED_MECHANICS)
+{
+	ASSERT_NO_FATAL_FAILURE(test_2d_tagless_tiled_tiff_declared_float_still_refused_mechanics());
+}
+
+TEST(TEST_NYXUS, TEST_2D_TAGLESS_TILED_TIFF_UNSUPPORTED_DEPTH_STILL_REFUSED_MECHANICS)
+{
+	ASSERT_NO_FATAL_FAILURE(test_2d_tagless_tiled_tiff_unsupported_depth_still_refused_mechanics());
+}
+
+TEST(TEST_NYXUS, TEST_2D_TAGLESS_TILED_TIFF_MULTISAMPLE_STILL_REFUSED_MECHANICS)
+{
+	ASSERT_NO_FATAL_FAILURE(test_2d_tagless_tiled_tiff_multisample_still_refused_mechanics());
+}
+
+TEST(TEST_NYXUS, TEST_2D_TAGLESS_TILED_TIFF_STRIP_FILE_REFUSED_BY_TILE_LOADERS_MECHANICS)
+{
+	ASSERT_NO_FATAL_FAILURE(test_2d_tagless_tiled_tiff_strip_file_refused_by_tile_loaders_mechanics());
+}
+
+TEST(TEST_NYXUS, TEST_2D_DECLARED_VOID_FORMAT_TILED_READ_AS_UNSIGNED_MECHANICS)
+{
+	ASSERT_NO_FATAL_FAILURE(test_2d_declared_void_format_tiled_read_as_unsigned_mechanics());
+}
+
+TEST(TEST_NYXUS, TEST_2D_DECLARED_VOID_FORMAT_TILED_MASK_READ_AS_UNSIGNED_MECHANICS)
+{
+	ASSERT_NO_FATAL_FAILURE(test_2d_declared_void_format_tiled_mask_read_as_unsigned_mechanics());
+}
+
+TEST(TEST_NYXUS, TEST_2D_TAGLESS_TILED_TIFF_DECLARED_COMPLEX_FORMAT_REFUSED_MECHANICS)
+{
+	ASSERT_NO_FATAL_FAILURE(test_2d_tagless_tiled_tiff_declared_complex_format_refused_mechanics());
+}
+
+TEST(TEST_NYXUS, TEST_2D_TAGLESS_STRIP_TIFF_ACCEPTED_MECHANICS)
+{
+	ASSERT_NO_FATAL_FAILURE(test_2d_tagless_strip_tiff_accepted_mechanics());
+}
+
+TEST(TEST_NYXUS, TEST_2D_DECLARED_VOID_FORMAT_STRIP_READ_AS_UNSIGNED_MECHANICS)
+{
+	ASSERT_NO_FATAL_FAILURE(test_2d_declared_void_format_strip_read_as_unsigned_mechanics());
+}
+
+TEST(TEST_NYXUS, TEST_2D_DECLARED_COMPLEX_FORMAT_STRIP_REFUSED_MECHANICS)
+{
+	ASSERT_NO_FATAL_FAILURE(test_2d_declared_complex_format_strip_refused_mechanics());
 }
 
 TEST(TEST_NYXUS, TEST_INITIALIZATION_MECHANICS) {
