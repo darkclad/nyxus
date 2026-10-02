@@ -205,6 +205,18 @@ namespace Nyxus
 
 }	//- namespace Nyxus
 
+namespace
+{
+	// The covariance of the physical coordinates from that of the lattice ones
+	void scale_covariance (double K[3][3], double sx, double sy, double sz)
+	{
+		const double s[3] = { sx, sy, sz };
+		for (int i = 0; i < 3; i++)
+			for (int j = 0; j < 3; j++)
+				K[i][j] *= s[i] * s[j];
+	}
+}
+
 bool D3_SurfaceFeature::required (const FeatureSet & fs)
 {
 	return fs.anyEnabled (D3_SurfaceFeature::featureset);
@@ -291,7 +303,7 @@ void D3_SurfaceFeature::build_surface (LR & r)
 		for (auto ip : plane)
 		{
 			auto v = r.raw_pixels_3D[ip];
-			P.push_back (std::array<double, 3>({ (double)v.x, (double)v.y, (double)v.z }));
+			P.push_back (std::array<double, 3>({ v.x * r.spacing_x, v.y * r.spacing_y, v.z * r.spacing_z }));
 		}
 	}
 
@@ -352,9 +364,11 @@ void D3_SurfaceFeature::calculate (LR& r, const Fsettings& s)
 		return;
 	}
 
+	const double sx = r.spacing_x, sy = r.spacing_y, sz = r.spacing_z;
+
 	if (STNGS_SINGLEROI(s))	// former Nyxus::theEnvironment.singleROI
 	{
-		set_whole_box (r.aabb.get_width(), r.aabb.get_height(), r.aabb.get_z_depth());
+		set_whole_box (r.aabb.get_width(), r.aabb.get_height(), r.aabb.get_z_depth(), sx, sy, sz);
 		return;
 	}
 
@@ -362,10 +376,11 @@ void D3_SurfaceFeature::calculate (LR& r, const Fsettings& s)
 
 	// (fast approximation based on cubic lattice packaging of balls). The per-voxel packed
 	// volume is a constant, so the whole sum is voxel_count * that constant (the out-of-core
-	// path already computes it closed-form; match it here instead of an O(n) accumulation).
-	double ball_r3 = 1. / 8.;	// r^3, after the anisotropy correction, lattice is expected to be cubic
+	// path already computes it closed-form; match it here instead of an O(n) accumulation). The
+	// packing is that of the cubic lattice, and a voxel of sx*sy*sz is its linear image.
+	double ball_r3 = 1. / 8.;	// r^3 of the ball inscribed in a unit voxel
 	double sumPackedV = double(r.raw_pixels_3D.size()) * (4. / 3. * M_PI * ball_r3);
-	fval_VOXEL_VOLUME = sumPackedV / 0.5236;		// packaging density at kissing number = 4 (cubic lattice)
+	fval_VOXEL_VOLUME = sumPackedV / 0.5236 * sx * sy * sz;		// packaging density at kissing number = 4 (cubic lattice)
 
 	// surface
 
@@ -428,20 +443,25 @@ void D3_SurfaceFeature::calculate (LR& r, const Fsettings& s)
 		{ 0, 1, 0 }, { 0, -1, 0 },
 		{ 0, 0, 1 }, { 0, 0, -1 }
 	};
+	// a face across x is a voxel's y-z side, and so on
+	const double faceArea[6] = { sy * sz, sy * sz, sx * sz, sx * sz, sx * sy, sx * sy };
 
 	fval_AREA = 0.0;
 	for (const auto& vox : r.raw_pixels_3D)
 	{
-		for (const auto& d : nbr)
+		for (int k = 0; k < 6; k++)
 		{
+			const auto& d = nbr[k];
 			if (voxels.find({ vox.x + d[0], vox.y + d[1], vox.z + d[2] }) == voxels.end())
-				fval_AREA += 1.0;
+				fval_AREA += faceArea[k];
 		}
 	}
 
 	// mesh volume: the volume enclosed by the ROI's marching-cubes surface, which is the surface IBSI
-	// section 3.1 defines volume (mesh) over and the one MIRP and pyradiomics integrate
-	fval_MESH_VOLUME = Nyxus::roi_mesh_volume (r.raw_pixels_3D);
+	// section 3.1 defines volume (mesh) over and the one MIRP and pyradiomics integrate. The surface of
+	// a grid of sx*sy*sz voxels is the linear image of the lattice one, so its volume is the lattice
+	// volume times a voxel's.
+	fval_MESH_VOLUME = Nyxus::roi_mesh_volume (r.raw_pixels_3D) * sx * sy * sz;
 
 	// -- build the hull complex
 	build_surface (r);
@@ -463,9 +483,10 @@ void D3_SurfaceFeature::calculate (LR& r, const Fsettings& s)
 			hullCloudLen++;
 		}
 	}
-	cx /= double(hullCloudLen);
-	cy /= double(hullCloudLen);
-	cz /= double(hullCloudLen);
+	// in the physical coordinates build_surface built the hull in
+	cx *= sx / double(hullCloudLen);
+	cy *= sy / double(hullCloudLen);
+	cz *= sz / double(hullCloudLen);
 
 	// -- volume by all the conv hull faces
 
@@ -503,6 +524,7 @@ void D3_SurfaceFeature::calculate (LR& r, const Fsettings& s)
 	// pca features
 	double K[3][3];
 	Pixel3::calc_cov_matrix (K, r.raw_pixels_3D);
+	scale_covariance (K, sx, sy, sz);
 	double L[3];
 	if (Nyxus::calc_eigvals(L, K))
 	{
@@ -526,24 +548,26 @@ void D3_SurfaceFeature::calculate (LR& r, const Fsettings& s)
 	}
 }
 
-void D3_SurfaceFeature::set_whole_box (StatsInt w, StatsInt h, StatsInt d)
+void D3_SurfaceFeature::set_whole_box (StatsInt w, StatsInt h, StatsInt d, double sx, double sy, double sz)
 {
-	// 3AREA counts the box's exposed voxel faces, which is what the general path counts for a solid
-	// box, and the five ratios take it against the voxel volume as there.
-	fval_AREA = 2 * (w*h + h*d + w*d);
+	// 3AREA counts the box's exposed voxel faces, each the area of a voxel's side across its axis,
+	// which is what the general path counts for a solid box, and the five ratios take it against the
+	// voxel volume as there.
+	fval_AREA = 2. * (double(w) * h * sx * sy + double(h) * d * sy * sz + double(w) * d * sx * sz);
 
 	// The ROI is the whole box, so its marching-cubes surface is a bevelled box and the mesh volume
 	// has a closed form: each of the 4*(w+h+d-3) cells along an interior edge and each of the 8
 	// corner cells cuts a fixed amount off the staircase. For 3MESH_VOLUME this reproduces the
-	// general path's roi_mesh_volume() exactly, down to a one-voxel box.
+	// general path's roi_mesh_volume() exactly, down to a one-voxel box, and a voxel of sx*sy*sz
+	// scales it as it scales the general path's.
 	const double edgecells = double(w) + double(h) + double(d) - 3.;
-	fval_MESH_VOLUME = double(w) * h * d - edgecells / 2. - 5. / 6.;
+	fval_MESH_VOLUME = (double(w) * h * d - edgecells / 2. - 5. / 6.) * sx * sy * sz;
 
-	// 3VOXEL_VOLUME and 3VOLUME_CONVEXHULL both report the box volume w*h*d, the volume of the
-	// union of the voxels. That is not what the general path computes for either: its hull is the
-	// hull of the voxel centres, (w-1)(h-1)(d-1) for a box, and its voxel volume carries the
-	// packing constant.
-	fval_VOLUME_CONVEXHULL = fval_VOXEL_VOLUME = w * h * d;
+	// 3VOXEL_VOLUME and 3VOLUME_CONVEXHULL both report the box volume, the volume of the union of
+	// the voxels. That is not what the general path computes for either: its hull is the hull of the
+	// voxel centres, (w-1)(h-1)(d-1) voxels' worth for a box, and its voxel volume carries the packing
+	// constant.
+	fval_VOLUME_CONVEXHULL = fval_VOXEL_VOLUME = double(w) * h * d * sx * sy * sz;
 
 	fval_AREA_2_VOLUME = fval_AREA / fval_VOXEL_VOLUME;
 	fval_COMPACTNESS1 = fval_VOXEL_VOLUME / std::sqrt(M_PI * fval_AREA * fval_AREA * fval_AREA);
@@ -575,15 +599,17 @@ void D3_SurfaceFeature::osized_calculate (LR& r, const Fsettings& s, ImageLoader
 		return;
 	}
 
+	const double spx = r.spacing_x, spy = r.spacing_y, spz = r.spacing_z;
+
 	if (STNGS_SINGLEROI(s))
 	{
-		set_whole_box (r.aabb.get_width(), r.aabb.get_height(), r.aabb.get_z_depth());
+		set_whole_box (r.aabb.get_width(), r.aabb.get_height(), r.aabb.get_z_depth(), spx, spy, spz);
 		return;
 	}
 
-	// -- VOXEL_VOLUME: same cubic-lattice ball packing, a function of voxel count only
+	// -- VOXEL_VOLUME: same cubic-lattice ball packing, a function of voxel count and voxel size only
 	double sumPackedV = double(n) * (4. / 3. * M_PI * (1. / 8.));
-	fval_VOXEL_VOLUME = sumPackedV / 0.5236;
+	fval_VOXEL_VOLUME = sumPackedV / 0.5236 * spx * spy * spz;
 
 	const int W = (int) r.aabb.get_width(),
 		H = (int) r.aabb.get_height(),
@@ -597,9 +623,10 @@ void D3_SurfaceFeature::osized_calculate (LR& r, const Fsettings& s, ImageLoader
 	double cx = 0, cy = 0, cz = 0;
 	size_t hullCloudLen = 0;
 
-	// Surface area as exposed faces = 6*N - 2*(adjacent voxel pairs). x/y adjacencies are tallied
-	// within a plane; z adjacencies between a plane and the previous one -- a 2-plane window.
-	double adjacencies = 0.0;
+	// Surface area as exposed faces: along each axis 2*N faces less 2 per adjacent voxel pair along
+	// it, each face the area of a voxel's side across that axis. x/y adjacencies are tallied within
+	// a plane; z adjacencies between a plane and the previous one -- a 2-plane window.
+	double adjx = 0.0, adjy = 0.0, adjz = 0.0;
 	std::vector<char> prevOcc;   // occupancy bitmap of plane (z-1) over the [W x H] ROI bbox
 	long long prevZ = -2;        // z index of prevOcc; -2 = none
 
@@ -624,7 +651,7 @@ void D3_SurfaceFeature::osized_calculate (LR& r, const Fsettings& s, ImageLoader
 		for (auto ik : K)
 		{
 			const auto& v = slab[ik];
-			P.push_back (std::array<double, 3>({ (double) v.x, (double) v.y, (double) v.z }));
+			P.push_back (std::array<double, 3>({ v.x * spx, v.y * spy, v.z * spz }));
 			cx += v.x; cy += v.y; cz += v.z;
 			hullCloudLen++;
 		}
@@ -648,20 +675,22 @@ void D3_SurfaceFeature::osized_calculate (LR& r, const Fsettings& s, ImageLoader
 		{
 			int lx = (int) v.x - minx, ly = (int) v.y - miny;
 			if (lx + 1 < W && ly >= 0 && ly < H && curOcc[(size_t) ly * W + (lx + 1)])
-				adjacencies += 1.0;
+				adjx += 1.0;
 			if (ly + 1 < H && lx >= 0 && lx < W && curOcc[(size_t) (ly + 1) * W + lx])
-				adjacencies += 1.0;
+				adjy += 1.0;
 			// +z: pair with the previous plane at the same (x,y) (each unordered z pair once)
 			if (prevZ == (long long) z - 1 && lx >= 0 && lx < W && ly >= 0 && ly < H
 				&& prevOcc[(size_t) ly * W + lx])
-				adjacencies += 1.0;
+				adjz += 1.0;
 		}
 
 		prevOcc.swap (curOcc);
 		prevZ = (long long) z;
 	}
 
-	fval_AREA = 6.0 * double(n) - 2.0 * adjacencies;
+	fval_AREA = (2.0 * double(n) - 2.0 * adjx) * spy * spz
+		+ (2.0 * double(n) - 2.0 * adjy) * spx * spz
+		+ (2.0 * double(n) - 2.0 * adjz) * spx * spy;
 
 	// -- convex hull from the collected boundary points
 	build_hull (P);
@@ -669,9 +698,10 @@ void D3_SurfaceFeature::osized_calculate (LR& r, const Fsettings& s, ImageLoader
 	// -- convex hull volume via signed tetrahedra from the contour centroid
 	if (hullCloudLen)
 	{
-		cx /= double(hullCloudLen);
-		cy /= double(hullCloudLen);
-		cz /= double(hullCloudLen);
+		// in the physical coordinates the hull was built in
+		cx *= spx / double(hullCloudLen);
+		cy *= spy / double(hullCloudLen);
+		cz *= spz / double(hullCloudLen);
 	}
 	fval_VOLUME_CONVEXHULL = 0;
 	for (const auto& sx3 : hull_complex)
@@ -691,7 +721,7 @@ void D3_SurfaceFeature::osized_calculate (LR& r, const Fsettings& s, ImageLoader
 		{
 			if (z >= 0)
 				r.raw_voxels_NT.read_slab ((size_t) z, voxels);
-		});
+		}) * spx * spy * spz;
 
 	// -- volume-area ratio features, as in calculate()
 	fval_AREA_2_VOLUME = fval_AREA / fval_VOXEL_VOLUME;
@@ -716,6 +746,7 @@ void D3_SurfaceFeature::osized_calculate (LR& r, const Fsettings& s, ImageLoader
 	}
 	else
 		K[0][0] = K[0][1] = K[0][2] = K[1][0] = K[1][1] = K[1][2] = K[2][0] = K[2][1] = K[2][2] = 0;
+	scale_covariance (K, spx, spy, spz);
 
 	double L[3];
 	if (Nyxus::calc_eigvals(L, K))
