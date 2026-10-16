@@ -84,7 +84,7 @@ jobs:
         with:
           name: prereqs-ubuntu-22.04
           path: prereqs.tar.gz
-          retention-days: 1
+          retention-days: 14
 
 
   prereqs_ubuntu_arm:
@@ -148,7 +148,7 @@ jobs:
         with:
           name: prereqs-ubuntu-22.04-arm
           path: prereqs.tar.gz
-          retention-days: 1
+          retention-days: 14
 
 
   prereqs_windows:
@@ -210,7 +210,7 @@ jobs:
         with:
           name: prereqs-windows-latest
           path: prereqs.tar.gz
-          retention-days: 1
+          retention-days: 14
 
 
   prereqs_macos_intel:
@@ -268,7 +268,7 @@ jobs:
         with:
           name: prereqs-macos-15-intel
           path: prereqs.tar.gz
-          retention-days: 1
+          retention-days: 14
 
 
   prereqs_macos_arm64:
@@ -326,7 +326,7 @@ jobs:
         with:
           name: prereqs-macos-14
           path: prereqs.tar.gz
-          retention-days: 1
+          retention-days: 14
 
 
   # ============================================================
@@ -393,7 +393,7 @@ jobs:
         with:
           name: nyxus-wheels-ubuntu-22.04-auto64-${{ matrix.cibw_build }}
           path: dist/*.whl
-          retention-days: 1
+          retention-days: 14
 
 
   wheels_ubuntu_arm:
@@ -456,7 +456,7 @@ jobs:
         with:
           name: nyxus-wheels-ubuntu-22.04-arm-auto64-${{ matrix.cibw_build }}
           path: dist/*.whl
-          retention-days: 1
+          retention-days: 14
 
 
   wheels_windows:
@@ -516,7 +516,7 @@ jobs:
         with:
           name: nyxus-wheels-windows-latest-auto64-${{ matrix.cibw_build }}
           path: dist/*.whl
-          retention-days: 1
+          retention-days: 14
 
 
   wheels_macos_intel:
@@ -596,7 +596,7 @@ jobs:
         with:
           name: nyxus-wheels-macos-15-intel-auto64-${{ matrix.cibw_build }}
           path: dist/*.whl
-          retention-days: 1
+          retention-days: 14
 
 
   wheels_macos_arm64:
@@ -671,4 +671,4 @@ jobs:
         with:
           name: nyxus-wheels-macos-14-arm64-${{ matrix.cibw_build }}
           path: dist/*.whl
-          retention-days: 1
+          retention-days: 14
