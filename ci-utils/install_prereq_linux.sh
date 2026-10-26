@@ -211,9 +211,17 @@ fi
 
 if [[ $BUILD_ARROW_DEP -eq 1 ]]; then
 
-    curl -L https://github.com/apache/arrow/archive/refs/tags/apache-arrow-26.0.0.zip -o  arrow-apache-arrow-26.0.0.zip
-    unzip arrow-apache-arrow-26.0.0.zip
-    cd arrow-apache-arrow-26.0.0
+    # macOS builds the Arrow release that the current pyarrow ships, because the macOS wheels
+    # load the bundled libarrow next to pyarrow's. Linux stays on 20.0.0: Arrow 26's bundled
+    # uriparser calls reallocarray, which the manylinux glibc does not declare.
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        ARROW_VERSION=26.0.0
+    else
+        ARROW_VERSION=20.0.0
+    fi
+    curl -L https://github.com/apache/arrow/archive/refs/tags/apache-arrow-$ARROW_VERSION.zip -o  arrow-apache-arrow-$ARROW_VERSION.zip
+    unzip arrow-apache-arrow-$ARROW_VERSION.zip
+    cd arrow-apache-arrow-$ARROW_VERSION
     cd cpp
     mkdir build
     cd build
