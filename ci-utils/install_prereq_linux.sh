@@ -214,10 +214,14 @@ if [[ $BUILD_ARROW_DEP -eq 1 ]]; then
     # macOS builds the Arrow release that the current pyarrow ships, because the macOS wheels
     # load the bundled libarrow next to pyarrow's. Linux stays on 20.0.0: Arrow 26's bundled
     # uriparser calls reallocarray, which the manylinux glibc does not declare.
+    # On macOS Arrow builds simdjson from source: the runner's Homebrew libsimdjson has a
+    # minimum macOS above the wheels' deployment target, and delocate-wheel rejects it.
     if [[ "$OSTYPE" == "darwin"* ]]; then
         ARROW_VERSION=26.0.0
+        ARROW_PLATFORM_ARGS="-Dsimdjson_SOURCE=BUNDLED"
     else
         ARROW_VERSION=20.0.0
+        ARROW_PLATFORM_ARGS=""
     fi
     curl -L https://github.com/apache/arrow/archive/refs/tags/apache-arrow-$ARROW_VERSION.zip -o  arrow-apache-arrow-$ARROW_VERSION.zip
     unzip arrow-apache-arrow-$ARROW_VERSION.zip
@@ -237,7 +241,8 @@ if [[ $BUILD_ARROW_DEP -eq 1 ]]; then
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -DARROW_IPC=ON \
             -DARROW_JSON=ON \
-            .. 
+            $ARROW_PLATFORM_ARGS \
+            ..
     make -j4
     make install
 
