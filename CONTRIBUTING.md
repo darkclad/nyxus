@@ -99,6 +99,7 @@ The main CMake options:
 | `-DNOEXTRAS=OFF` with `-DUSE_ARROW` / `-DUSE_Z5` / `-DUSE_DCMTK=ON` | enable the optional I/O selectively (`NOEXTRAS` defaults to `ON` and turns all three off) |
 | `-DUSEGPU=ON` | build the CUDA kernels; needs a CUDA toolkit that supports the host compiler |
 | `-DRUN_BENCHMARKS=ON` | build the microbenchmarks in [`benchmarks/`](benchmarks/README.md) |
+| `-DCHECKTIMING=ON` | time each feature group of a 2D run and write `inclusive_nyxustiming.csv` (used by [`benchmarks/perf`](benchmarks/perf/README.md)) |
 
 **Windows.** Use MSVC, not gcc: conda-forge's Windows packages are built with MSVC, so a gcc build
 cannot link them. Run the Visual Studio `vcvars64.bat` first and configure with the Ninja generator,

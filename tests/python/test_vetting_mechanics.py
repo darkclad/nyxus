@@ -339,3 +339,21 @@ def test_vetting_name_checker_rejects_bad_names_mechanics(tmp_path):
     # as one that flags nothing. ngldm_2d_regression_ref_vals above is const, so it earns the raw
     # container error and only that one.
     assert not any("ngldm_2d_regression_ref_vals" in e and "without const" in e for e in errs)
+
+
+def test_vetting_name_checker_reads_the_perf_harness_tests_mechanics(tmp_path):
+    """benchmarks/perf/tests is held to the same names, and a name used in two scanned trees is
+    refused: every rule and exemption goes by file name, so the two would share one entry."""
+    (tmp_path / "tests" / "python").mkdir(parents=True)
+    (tmp_path / "tests" / "test_all.cc").write_text("", encoding="utf-8")
+    perf = tmp_path / "benchmarks" / "perf" / "tests"
+    perf.mkdir(parents=True)
+    (perf / "test_perfsuite_mechanics.py").write_text("def test_perfsuite_misnamed():\n    pass\n",
+                                                      encoding="utf-8")
+    (perf / "test_ooc_mechanics.py").write_text("", encoding="utf-8")
+    (tmp_path / "tests" / "python" / "test_ooc_mechanics.py").write_text("", encoding="utf-8")
+    errs = ctn.check(tmp_path)
+    assert any("test_perfsuite_misnamed" in e and "kind/oracle token" in e for e in errs), errs
+    # named by their paths, so the reader finds both
+    assert any("two test files" in e and "benchmarks/perf/tests/test_ooc_mechanics.py" in e
+               and "tests/python/test_ooc_mechanics.py" in e for e in errs), errs

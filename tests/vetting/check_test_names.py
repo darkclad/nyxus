@@ -109,6 +109,8 @@ DIM_AGNOSTIC = {
     "test_docs_feature_reference_mechanics.py": "the feature reference generator's checks; no image is read",
     "test_ooc_mechanics.py": "out-of-core streaming machinery, asserted for both dims at once",
     "test_physical_calibration_regression.py": "physical voxel spacing read from OME metadata, not from an image of either dimension",
+    "test_perfsuite_mechanics.py":
+        "the performance harness (benchmarks/perf): case planning, workers, comparison, over 2D and 3D datasets alike",
     # imq carries its own dimension: dim=IMQ in oracle_coverage.csv, not 2D/3D
     "test_imq_common.h": "dim=IMQ in the registry",
     "test_imq_opencv.h": "dim=IMQ in the registry",
@@ -322,9 +324,20 @@ def check(root):
     tests = root / "tests"
     errors = []
 
+    # benchmarks/perf/tests holds the performance harness's own tests, held to the same names
     files = sorted(
         [p for p in tests.glob("*.h")] + [p for p in tests.glob("*.cc")] +
-        [p for p in (tests / "python").glob("*.py")])
+        [p for p in (tests / "python").glob("*.py")] +
+        [p for p in (root / "benchmarks" / "perf" / "tests").glob("*.py")])
+    # every rule below, and DIM_AGNOSTIC / KIND_EXCEPTIONS, goes by file name; two scanned files
+    # with one name would share an entry, so a name is unique across the scanned trees
+    seen = {}
+    for p in files:
+        if p.name in seen:
+            a, b = (q.relative_to(root).as_posix() for q in (seen[p.name], p))
+            errors.append(f"{p.name}: two test files have this name ({a} and {b}); names must be unique "
+                          f"across the scanned trees")
+        seen.setdefault(p.name, p)
 
     # ---- 6.1 file names ----
     kinds, dims = {}, {}

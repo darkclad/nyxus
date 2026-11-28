@@ -1,0 +1,149 @@
+{
+ "counts": {
+  "kernels/contour/side256": {
+   "instructions": 2208778,
+   "library_instructions": 300128,
+   "value": 810.5899705197362
+  },
+  "kernels/contour/side64": {
+   "instructions": 187271,
+   "library_instructions": 78418,
+   "value": 204.7106781186549
+  },
+  "kernels/convex_hull/side256": {
+   "instructions": 19636292,
+   "library_instructions": 4568,
+   "value": 39603.0
+  },
+  "kernels/convex_hull/side64": {
+   "instructions": 1027532,
+   "library_instructions": 3979,
+   "value": 2507.0
+  },
+  "kernels/erosion/side256": {
+   "instructions": 950569003,
+   "library_instructions": 1973830,
+   "value": 88.0
+  },
+  "kernels/erosion/side64": {
+   "instructions": 15073894,
+   "library_instructions": 36662,
+   "value": 24.0
+  },
+  "kernels/gabor/side256": {
+   "instructions": 906538678,
+   "library_instructions": 1006038,
+   "value": 0.970198061134561
+  },
+  "kernels/gabor/side64": {
+   "instructions": 53314474,
+   "library_instructions": 324180,
+   "value": 0.9840025094102886
+  },
+  "kernels/glcm/side256": {
+   "instructions": 29329620,
+   "library_instructions": 176667,
+   "value": 50.390373602399784
+  },
+  "kernels/glcm/side64": {
+   "instructions": 10545791,
+   "library_instructions": 77459,
+   "value": 85.16995181778361
+  },
+  "kernels/gldzm/side256": {
+   "instructions": 308549072,
+   "library_instructions": 9778144,
+   "value": 0.00626150908961002
+  },
+  "kernels/gldzm/side64": {
+   "instructions": 5719544,
+   "library_instructions": 810672,
+   "value": 0.03978557533026515
+  },
+  "kernels/glrlm/side256": {
+   "instructions": 54600227,
+   "library_instructions": 4087899,
+   "value": 29782.44297021154
+  },
+  "kernels/glrlm/side64": {
+   "instructions": 5103287,
+   "library_instructions": 512661,
+   "value": 1897.8382608695651
+  },
+  "kernels/glszm/side256": {
+   "instructions": 459485998,
+   "library_instructions": 2915648,
+   "value": 19312.58451838879
+  },
+  "kernels/glszm/side64": {
+   "instructions": 26592093,
+   "library_instructions": 216240,
+   "value": 1457.7134146341464
+  },
+  "kernels/imoments/side256": {
+   "instructions": 208524214,
+   "library_instructions": 607746983,
+   "value": 1110178144.0
+  },
+  "kernels/imoments/side64": {
+   "instructions": 12528940,
+   "library_instructions": 38314632,
+   "value": 70896543.0
+  },
+  "kernels/ngldm/side256": {
+   "instructions": 26245792,
+   "library_instructions": 80320,
+   "value": 0.7008533283292505
+  },
+  "kernels/ngldm/side64": {
+   "instructions": 1694818,
+   "library_instructions": 47273,
+   "value": 0.7799434002563005
+  },
+  "kernels/smoments/side256": {
+   "instructions": 211441273,
+   "library_instructions": 607746956,
+   "value": 36925.0
+  },
+  "kernels/smoments/side64": {
+   "instructions": 12713863,
+   "library_instructions": 38314605,
+   "value": 2341.0
+  },
+  "kernels/zernike/side256": {
+   "instructions": 67682129,
+   "library_instructions": 2163,
+   "value": 0.3183098861837839
+  },
+  "kernels/zernike/side64": {
+   "instructions": 3940449,
+   "library_instructions": 2165,
+   "value": 0.31830988618379114
+  }
+ },
+ "meta": {
+  "finished": "2026-11-28T00:05:55",
+  "git_dirty": null,
+  "git_sha": null,
+  "kind": "instructions",
+  "method": "valgrind callgrind Ir inside bench_kernel(), one repetition, no warm-up, no timing; GLIBC_TUNABLES=glibc.cpu.hwcaps=-SSE3,-SSSE3,-SSE4_1,-SSE4_2,-POPCNT,-AVX,-AVX2,-AVX_VNNI,-FMA,-FMA4,-F16C,-BMI1,-BMI2,-LZCNT,-MOVBE,-ERMS,-FSRM,-RTM,-AVX512F,-AVX512CD,-AVX512BW,-AVX512DQ,-AVX512VL,-AVX512_VNNI,-AVX512_BF16,-AVX512_FP16,-Fast_Rep_String,-Fast_Copy_Backward,-Fast_Unaligned_Load,-Fast_Unaligned_Copy,-Prefer_PMINUB_for_stringop,-Prefer_No_VZEROUPPER,-Prefer_ERMS,-Prefer_FSRM,-Prefer_No_AVX512,-Avoid_Short_Distance_REP_MOVSB,-Slow_SSE4_2,-Slow_BSF:glibc.cpu.x86_data_cache_size=32768:glibc.cpu.x86_shared_cache_size=1048576:glibc.cpu.x86_non_temporal_threshold=786432:glibc.cpu.x86_rep_movsb_threshold=2048:glibc.cpu.x86_rep_stosb_threshold=2048",
+  "sides": [
+   64,
+   256
+  ],
+  "started": "2026-11-28T00:05:37",
+  "toolchain": {
+   "build_type": "Release",
+   "checktiming": "off",
+   "compile_hash": "d6a87d659409fe7efd870af6aad8e8768c4ac51d4a72160e3dc03726e0501a4b",
+   "compiler": "gcc 13.3.0",
+   "cpu_features": "avx avx2 fma bmi2 erms",
+   "gpu": "off",
+   "libc": "glibc 2.39",
+   "machine": "x86_64",
+   "packages": "binutils-x86-64-linux-gnu=2.42-4ubuntu2.11 binutils=2.42-4ubuntu2.11 cmake=3.28.3-1build7 cpp-13-x86-64-linux-gnu=13.3.0-6ubuntu2~24.04.1 cpp-13=13.3.0-6ubuntu2~24.04.1 g++-13-x86-64-linux-gnu=13.3.0-6ubuntu2~24.04.1 g++-13=13.3.0-6ubuntu2~24.04.1 gcc-13-base=13.3.0-6ubuntu2~24.04.1 gcc-13-x86-64-linux-gnu=13.3.0-6ubuntu2~24.04.1 gcc-13=13.3.0-6ubuntu2~24.04.1 gcc-14-base=14.2.0-4ubuntu2~24.04.1 libc6-dev=2.39-0ubuntu8.12 libc6=2.39-0ubuntu8.12 libgcc-13-dev=13.3.0-6ubuntu2~24.04.1 libstdc++-13-dev=13.3.0-6ubuntu2~24.04.1 libstdc++6=14.2.0-4ubuntu2~24.04.1 valgrind=1:3.22.0-0ubuntu3",
+   "pointer_bits": "64",
+   "valgrind": "valgrind-3.22.0"
+  }
+ }
+}

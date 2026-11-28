@@ -124,6 +124,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 #== GTest 
 option(RUN_GTEST "Downloads google unit test API and runs google test scripts to test Nyxus" OFF)
 option(RUN_BENCHMARKS "Build Nyxus benchmark executables" OFF)
+option(CHECKTIMING "Time each feature group of a 2D CLI run and write a per-group timing CSV (benchmarks/perf)" OFF)
 
 #==== Source files
 set(SOURCE
@@ -249,9 +250,16 @@ set(SOURCE
 	src/nyx/workflow_pythonapi.cpp
 )
 
+# The CLI and the benchmarks compile ${SOURCE} with the same definitions, so they share one
+# compiled copy of it. The Python module (WITH_PYTHON_H) and the unit tests
+# (NYXUS_GPU_TEST_HOOKS) compile it with other definitions and keep their own.
+if(BUILD_CLI OR RUN_BENCHMARKS)
+	add_library(nyxus_core OBJECT ${SOURCE})
+endif()
+
 # CLI
 if(BUILD_CLI)
-	add_executable(nyxus ${SOURCE} src/nyx/main_nyxus.cpp)
+	add_executable(nyxus src/nyx/main_nyxus.cpp)
 endif()
 
 # Python bindings.
@@ -482,17 +490,41 @@ if (APPLE AND BUILD_LIB)
 	endif()
 endif()
 
+if(BUILD_CLI OR RUN_BENCHMARKS)
+	# PUBLIC: the objects need the libraries' include paths to compile, and every executable
+	# built from them needs the libraries to link.
+	target_link_libraries(nyxus_core PUBLIC ${Nyxus_LIBRARIES})
+	if(CHECKTIMING)
+		# PUBLIC: main_nyxus.cpp sees the same timing build as the objects. The benchmarks link the
+		# same objects but call the feature code directly, past every stopwatch, so they time nothing.
+		target_compile_definitions(nyxus_core PUBLIC CHECKTIMING)
+	endif()
+endif()
+if(CHECKTIMING AND NOT BUILD_CLI)
+	message(WARNING "CHECKTIMING times the CLI only; enable BUILD_CLI")
+endif()
+
 if(BUILD_CLI)
-	target_link_libraries(nyxus PRIVATE ${Nyxus_LIBRARIES})
+	target_link_libraries(nyxus PRIVATE nyxus_core)
 endif()
 
 if(RUN_BENCHMARKS)
-	add_executable(bench_convex_hull
-		benchmarks/bench_convex_hull.cpp
-		${SOURCE}
-	)
-	target_include_directories(bench_convex_hull PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-	target_link_libraries(bench_convex_hull PRIVATE ${Nyxus_LIBRARIES})
+	foreach(bench bench_convex_hull bench_feature_kernels)
+		add_executable(${bench} benchmarks/${bench}.cpp)
+		target_include_directories(${bench} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+		target_link_libraries(${bench} PRIVATE nyxus_core)
+		if(USEGPU)
+			set_target_properties(${bench} PROPERTIES CUDA_ARCHITECTURES "${CUDA_ARCH_LIST}" CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+		endif()
+	endforeach()
+	# bench_feature_kernels --build-info reports the configuration being built (per build, so a
+	# multi-config generator reports the one in use). The compile settings that decide the code
+	# (flags, standard, definitions, include paths, PIC) are in compile_commands.json, and the link
+	# settings (linker flags, IPO) in the CMake cache and build.ninja; perfsuite icount hashes them
+	# all, since an instruction count depends on them.
+	target_compile_definitions(bench_feature_kernels PRIVATE "NYXUS_BENCH_BUILD_TYPE=\"$<CONFIG>\"")
+	# per target: the variable only takes effect for targets created after it is set
+	set_target_properties(nyxus_core bench_feature_kernels PROPERTIES EXPORT_COMPILE_COMMANDS ON)
 endif()
 
 message(STATUS "Nyxus Dependencies Summary")

@@ -866,7 +866,12 @@ The build
 - ``USEGPU`` defines ``USE_GPU`` and builds the ``nyxus_gpu`` library from ``GPU_SOURCE_FILES``.
 - ``RUN_GTEST`` downloads GoogleTest and builds ``runAllTests`` from ``tests/CMakeLists.txt``,
   which reuses ``${SOURCE}``.
-- ``RUN_BENCHMARKS`` builds the benchmark executable ``bench_convex_hull``.
+- ``RUN_BENCHMARKS`` builds the benchmark executables ``bench_convex_hull`` and
+  ``bench_feature_kernels``.
+- ``CHECKTIMING`` defines ``CHECKTIMING`` for the command-line program (not the Python module or
+  the unit tests), which then times each feature group and image-scan step of a 2D run with label
+  images and writes the times to ``inclusive_nyxustiming.csv``. The benchmarks link the same
+  objects, but they call the feature code directly and record no timings.
 - I/O backends: ``USE_Z5`` (OME-Zarr), ``USE_DCMTK`` (DICOM), ``USE_ARROW`` (Arrow and Parquet),
   or ``ALLEXTRAS`` for all three. ``NOEXTRAS`` is on by default and switches the three off, so a
   single backend also needs ``-DNOEXTRAS=OFF``; ``ALLEXTRAS`` overrides it.
@@ -1206,6 +1211,32 @@ Benchmarks
 To compare a change, build the benchmark from a clean checkout before and after it, and compare the
 median times for the same arguments. The benchmark also prints values computed from the result, so
 a change that alters the result shows up next to the timing.
+
+``bench_feature_kernels`` times the costliest 2D feature classes (Gabor, erosion, the two moment
+families, Zernike, contour, convex hull and five texture families) on one synthetic ROI per size.
+
+``benchmarks/perf`` is the end-to-end performance suite: it generates seeded synthetic images in
+every supported container, times loading (in RAM and out of core), every feature group, every
+feature code in the vetting registry, scaling sweeps and CPU against GPU, and compares a run against
+a baseline. Timing baselines depend on the machine, so they stay on the host that recorded them,
+outside the repository. Instruction counts per kernel call, counted under valgrind, depend on the
+code and the toolchain but not on the machine: they are committed in
+``benchmarks/perf/baselines/instructions.json``. A CI job with a pinned toolchain counts again on
+every pull request and every push to ``main``. It fails when a kernel's own instruction count
+changes, up or down, or its library instructions move by more than 0.5 % of its whole count, until
+the counts are updated from the job's ``instruction-counts`` artifact. When its toolchain, or the
+way the counts are made, is not the one the committed counts record, it fails as well: such counts
+say nothing about the change. The suite's ``README.md`` describes the tiers and the commands:
+
+.. code-block:: bash
+
+   cd benchmarks/perf
+   python -m perfsuite run --tier smoke --data <data-dir> --out results/smoke.json
+   python -m perfsuite baseline save results/smoke.json     # this host's timing baseline
+   python -m perfsuite compare results/smoke.json           # a later run against it
+   python -m perfsuite icount --bench-exe <build>/bench_feature_kernels --build-dir <build> \
+          --out results/icount.json
+   python -m perfsuite compare baselines/instructions.json results/icount.json
 
 
 .. _devguide-docs:

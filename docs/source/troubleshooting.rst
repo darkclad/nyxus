@@ -308,12 +308,11 @@ Output (times vary by machine):
 On the command line, time the whole run with your shell, for example ``time nyxus ...`` on Linux
 and macOS, or ``Measure-Command { nyxus ... }`` in PowerShell.
 
-For a per-step breakdown, build the command-line program with the ``CHECKTIMING`` macro. It is not
-a CMake option, so pass it as a compiler flag:
+For a per-step breakdown, build the command-line program with the ``CHECKTIMING`` option:
 
 .. code-block:: bash
 
-   cmake -S . -B build-cli -DBUILD_CLI=ON -DCMAKE_CXX_FLAGS=-DCHECKTIMING
+   cmake -S . -B build-cli -DBUILD_CLI=ON -DCHECKTIMING=ON
 
 A timing build prints the start, finish and gross elapsed time of every run. For a 2D run with
 label images it also prints a table of time per step, and writes the table to

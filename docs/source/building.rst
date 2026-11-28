@@ -224,7 +224,13 @@ CMake options
      - Downloads GoogleTest and builds the C++ test executable ``runAllTests``.
    * - ``RUN_BENCHMARKS``
      - ``OFF``
-     - Builds the ``bench_convex_hull`` micro-benchmark (see ``benchmarks/README.md``).
+     - Builds the ``bench_convex_hull`` and ``bench_feature_kernels`` micro-benchmarks (see
+       ``benchmarks/README.md``).
+   * - ``CHECKTIMING``
+     - ``OFF``
+     - Times each feature group and image-scan step of a 2D run with label images in the
+       command-line program, and writes the times to ``inclusive_nyxustiming.csv`` in the output
+       directory (see :ref:`troubleshooting`).
    * - ``CMAKE_BUILD_TYPE``
      - ``Release`` (``Debug`` with MSVC)
      - Single-configuration generators build ``Release`` unless told otherwise. With MSVC, CMake

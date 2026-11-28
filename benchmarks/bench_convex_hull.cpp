@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "../src/nyx/features/convex_hull.h"
+#include "bench_common.h"
 
 namespace
 {
@@ -91,14 +92,7 @@ int reps_for_side(int side)
 	return 4;
 }
 
-double median(std::vector<double> values)
-{
-	std::sort(values.begin(), values.end());
-	const size_t n = values.size();
-	if (n % 2 == 1)
-		return values[n / 2];
-	return 0.5 * (values[n / 2 - 1] + values[n / 2]);
-}
+using bench::median;
 
 void initialize_convex_roi(LR& roi, const std::vector<Pixel2>& pixels, int side)
 {

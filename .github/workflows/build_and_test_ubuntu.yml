@@ -65,6 +65,109 @@ jobs:
         python -m pytest tests/python/test_cli_mechanics.py -v
       
 
+  Build_and_Run_Benchmarks:
+    name: Build the benchmarks, check instruction counts
+    # The committed instruction counts in benchmarks/perf/baselines/instructions.json depend on the
+    # toolchain as well as on the code, so this job pins it: an Ubuntu 24.04 image by digest, every
+    # apt package from Ubuntu's archive as it stood at SNAPSHOT, and the Python packages from
+    # benchmarks/perf/requirements-ci.txt. A toolchain update changes SNAPSHOT (and the image)
+    # together with new counts. Inside the container, paths come from $GITHUB_WORKSPACE: the
+    # ${{ github.workspace }} expression gives the host's path, which the container does not have.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60  # one build and one count take a few minutes; a hung valgrind run ends here
+    container: ubuntu:24.04@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b
+    defaults:
+      run:
+        shell: bash
+    env:
+      SNAPSHOT: 20261127T000000Z
+      # the benchmark configuration the committed counts were made with (the README's build too): the
+      # code as users build it, no CHECKTIMING stopwatches
+      BENCH_CMAKE: -DCMAKE_BUILD_TYPE=Release -DBUILD_CLI=OFF -DBUILD_LIB=OFF -DNOEXTRAS=ON -DUSEGPU=OFF -DCHECKTIMING=OFF -DRUN_BENCHMARKS=ON
+      # the CHECKTIMING CLI the profile suite's tests need, built apart from the counted code
+      CLI_CMAKE: -DCMAKE_BUILD_TYPE=Release -DBUILD_CLI=ON -DBUILD_LIB=OFF -DNOEXTRAS=ON -DUSEGPU=OFF -DCHECKTIMING=ON
+    steps:
+    - name: Install the pinned toolchain
+      run: |
+        # the snapshot is served over HTTPS, which the bare image cannot check yet: certificates
+        # first, from the image's own archive (they are not part of what a count depends on)
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates
+        # then the snapshot, as configuration, so it holds for every apt command, the install included,
+        # pinned above everything else, so whatever the certificates' install brought in newer is
+        # taken back to the snapshot's version too
+        echo "APT::Snapshot \"$SNAPSHOT\";" > /etc/apt/apt.conf.d/50snapshot
+        printf 'Package: *\nPin: origin "snapshot.ubuntu.com"\nPin-Priority: 1001\n' > /etc/apt/preferences.d/50snapshot
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -y --allow-downgrades
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-downgrades --no-install-recommends build-essential \
+          cmake ninja-build libtiff-dev libdeflate-dev valgrind git python3 python3-venv
+
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Trust the checkout, install the pinned Python packages
+      # the container runs as root over a workspace the runner owns; git refuses such a repository
+      # unless told otherwise, and git_dirty would then report the checkout as unknown
+      run: |
+        git config --global --add safe.directory '*'
+        python3 -m venv /opt/perfsuite
+        # the complete set, each file by its hash: nothing resolved or rebuilt on the day
+        /opt/perfsuite/bin/pip install --no-deps --require-hashes -r "$GITHUB_WORKSPACE/benchmarks/perf/requirements-ci.txt"
+        /opt/perfsuite/bin/pip check
+        echo /opt/perfsuite/bin >> "$GITHUB_PATH"
+
+    - name: Build the benchmarks, and the CHECKTIMING CLI apart from them
+      run: |
+        cmake -G Ninja -B build-bench $BENCH_CMAKE
+        ninja -C build-bench bench_feature_kernels bench_convex_hull
+        test -f build-bench/compile_commands.json  # icount hashes it
+        cmake -G Ninja -B build-cli $CLI_CMAKE
+        ninja -C build-cli nyxus
+
+    - name: Run the harness tests against the built executables
+      working-directory: benchmarks/perf
+      # the executable tests skip when these variables are unset, so a wrong path would surface as a
+      # traceback mid-run: assert both are executables first. The nyxus Python package is not
+      # installed in this job; its end-to-end tests run in the PyTest job.
+      run: |
+        export PERFSUITE_BENCH_EXE="$GITHUB_WORKSPACE/build-bench/bench_feature_kernels"
+        export PERFSUITE_CLI="$GITHUB_WORKSPACE/build-cli/nyxus"
+        test -x "$PERFSUITE_BENCH_EXE"
+        test -x "$PERFSUITE_CLI"
+        python -m pytest tests -vv
+
+    - name: Count instructions per kernel and compare with the committed counts
+      working-directory: benchmarks/perf
+      # The toolchain is pinned, so the committed counts were made with exactly this one, unless they
+      # were made elsewhere or the pins moved without them. Then compare exits 3, and the counts say
+      # nothing about this change: the step fails and asks for this job's counts instead.
+      env:
+        # the pull request's own head commit, which the artifact names next to the merge commit counted
+        PERFSUITE_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      run: |
+        W="$GITHUB_WORKSPACE"
+        python -m perfsuite icount --bench-exe "$W/build-bench/bench_feature_kernels" --build-dir "$W/build-bench" \
+          --source-sha "$PERFSUITE_SOURCE_SHA" --out results/icount.json
+        set +e
+        python -m perfsuite compare baselines/instructions.json results/icount.json
+        rc=$?
+        set -e
+        if [ $rc -eq 3 ]; then
+          echo "::error::The committed counts were not made with this job's pinned toolchain or counting method (the report above says which): replace baselines/instructions.json with this job's instruction-counts artifact."
+          exit 1
+        fi
+        exit $rc
+
+    - name: Keep the counts, to update the committed ones when a change is intended
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: instruction-counts
+        path: benchmarks/perf/results/icount.json
+        if-no-files-found: ignore
+
   Build_and_Run_PyTest:
     name: Build and Run PyTest
     runs-on: ubuntu-latest
@@ -88,9 +191,12 @@ jobs:
     - name: Install Conda Dependencies
       run: |
         conda install mamba
-        mamba install compilers=1.7.0 pytest bfio imagecodecs --file ${{github.workspace}}/ci-utils/envs/conda_cpp.txt --file ${{github.workspace}}/ci-utils/envs/conda_py.txt
+        # psutil, tifffile, zarr and scipy are the performance harness's; solved here with the rest,
+        # before nyxus is built, so nothing is reinstalled underneath the built extension
+        mamba install compilers=1.7.0 pytest bfio imagecodecs psutil tifffile "zarr>=3" scipy --file ${{github.workspace}}/ci-utils/envs/conda_cpp.txt --file ${{github.workspace}}/ci-utils/envs/conda_py.txt
 
     - name: Install Nyxus
+      id: install_nyxus
       working-directory: ${{github.workspace}}
       run: CMAKE_ARGS="-DCMAKE_PREFIX_PATH=$CONDA_PREFIX -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DALLEXTRAS=ON" python -m pip install . -vv
 
@@ -121,3 +227,16 @@ jobs:
     - name: Validate the feature report
       working-directory: ${{github.workspace}}
       run: python3 tests/vetting/report_features.py --check
+
+    - name: Run the performance harness tests
+      # last, so a harness failure cannot keep the registry and naming checks above from running,
+      # and run whatever they found, so their failure cannot hide one in the harness either; but
+      # not without nyxus installed, which would only repeat the install's failure
+      if: ${{ !cancelled() && steps.install_nyxus.outcome == 'success' }}
+      working-directory: ${{github.workspace}}/benchmarks/perf
+      # The end-to-end tests skip when nyxus does not import; this job requires that it does.
+      env:
+        PERFSUITE_REQUIRE_NYXUS: "1"
+      run: |
+        python -c "import nyxus"
+        python -m pytest tests -vv
